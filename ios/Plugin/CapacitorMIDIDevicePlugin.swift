@@ -7,12 +7,49 @@ import Capacitor
  */
 @objc(CapacitorMIDIDevicePlugin)
 public class CapacitorMIDIDevicePlugin: CAPPlugin {
-    private let implementation = CapacitorMIDIDevice()
+    private let midiHandler = iOSMIDIHandler.shared
 
-    @objc func echo(_ call: CAPPluginCall) {
-        let value = call.getString("value") ?? ""
+    @objc func listMIDIDevices(_ call: CAPPluginCall) {
+        let devices = midiHandler.listMIDIDevices()
         call.resolve([
-            "value": implementation.echo(value)
+            "devices": devices
         ])
+    }
+
+    @objc func openDevice(_ call: CAPPluginCall) {
+        guard let deviceNumber = call.getInt("deviceNumber") else {
+            call.reject("Missing deviceNumber parameter")
+            return
+        }
+
+        midiHandler.openDevice(deviceNumber: deviceNumber) { message in
+            let msgType: String
+            switch message.type {
+            case .noteOn:
+                msgType = "NoteOn"
+            case .noteOff:
+                msgType = "NoteOff"
+            }
+
+            let msg: [String: Any] = [
+                "type": msgType,
+                "note": message.note,
+                "velocity": message.velocity
+            ]
+
+            self.notifyListeners("MIDI_MSG_EVENT", data: msg)
+        }
+
+        call.resolve()
+    }
+
+    @objc func initConnectionListener(_ call: CAPPluginCall) {
+        midiHandler.addDeviceConnectionListener { devices in
+            self.notifyListeners("MIDI_CON_EVENT", data: [
+                "devices": devices
+            ])
+        }
+
+        call.resolve()
     }
 }
