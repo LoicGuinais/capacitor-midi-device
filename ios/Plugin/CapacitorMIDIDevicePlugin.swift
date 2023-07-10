@@ -1,50 +1,55 @@
 import Foundation
 import Capacitor
+import CoreMIDI
 
-/**
- * Please read the Capacitor iOS Plugin Development Guide
- * here: https://capacitorjs.com/docs/plugins/ios
- */
+struct MIDIDevice {
+  let name: String
+}
+
 @objc(CapacitorMIDIDevicePlugin)
 public class CapacitorMIDIDevicePlugin: CAPPlugin {
 
-  @objc func listMIDIDevices(_ call: CAPPluginCall) {
-    if let midiDevices = getAvailableMIDIDevices() {
-      let deviceNames = midiDevices.map { $0.name }
-      call.resolve(["value": deviceNames])
-    } else {
-      call.reject("Failed to retrieve MIDI devices")
-    }
-  }
-
-  private func getAvailableMIDIDevices() -> [MIDIDevice]? {
-    // Implementation code for retrieving available MIDI devices
-    // This can vary depending on the platform and MIDI library you're using
-    // Here's a sample implementation using Core MIDI framework on iOS:
-
-    var devices: [MIDIDevice] = []
-    let midiClient = MIDIClientCreate("MIDIDevicePlugin" as CFString)
-
-    let destinationCount = MIDIGetNumberOfDestinations()
-    for index in 0..<destinationCount {
-      let destination = MIDIGetDestination(index)
-      if destination != 0 {
-        let device = MIDIDevice(name: getDestinationName(destination))
-        devices.append(device)
+    @objc func listMIDIDevices(_ call: CAPPluginCall) {
+      if let midiDevices = getAvailableMIDIDevices() {
+        let deviceNames = midiDevices.map { $0.name }
+        call.resolve(["value": deviceNames])
+      } else {
+        call.reject("Failed to retrieve MIDI devices")
       }
     }
 
-    return devices.isEmpty ? nil : devices
-  }
+    private func getAvailableMIDIDevices() -> [MIDIDevice]? {
+      // Implementation code for retrieving available MIDI devices
+      // This can vary depending on the platform and MIDI library you're using
+      // Here's a sample implementation using Core MIDI framework on iOS:
 
-  private func getDestinationName(_ destination: MIDIEndpointRef) -> String {
-    var cfName: Unmanaged<CFString>? = nil
-    let result = MIDIObjectGetStringProperty(destination, kMIDIPropertyName, &cfName)
-    if result == noErr, let cfString = cfName?.takeRetainedValue() {
-      return cfString as String
+      var devices: [MIDIDevice] = []
+      var client = MIDIClientRef()
+      
+      guard MIDIClientCreateWithBlock("MIDIDevicePlugin" as CFString, &client, nil) == noErr else {
+        return nil
+      }
+      
+      let destinationCount = MIDIGetNumberOfDestinations()
+      for index in 0..<destinationCount {
+        let destination = MIDIGetDestination(index)
+        if destination != 0 {
+          let device = MIDIDevice(name: getDestinationName(destination))
+          devices.append(device)
+        }
+      }
+      
+      return devices.isEmpty ? nil : devices
     }
-    return ""
-  }
+
+    private func getDestinationName(_ destination: MIDIEndpointRef) -> String {
+      var cfName: Unmanaged<CFString>? = nil
+      let result = MIDIObjectGetStringProperty(destination, kMIDIPropertyDisplayName, &cfName)
+      if result == noErr, let cfString = cfName?.takeRetainedValue() {
+        return cfString as String
+      }
+      return ""
+    }
 
   @objc func openDevice(_ call: CAPPluginCall) {
     guard let options = call.getObject("options") else {
@@ -77,7 +82,7 @@ public class CapacitorMIDIDevicePlugin: CAPPlugin {
     // Implementation code for initializing the connection listener
   }
 
-  @objc func addListener(_ call: CAPPluginCall) {
+  @objc public override func addListener(_ call: CAPPluginCall) {
     guard let eventName = call.getString("eventName") else {
       call.error("Invalid eventName")
       return
