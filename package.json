@@ -14,7 +14,7 @@
     "CapacitorMidiDevice.podspec"
   ],
   "author": "MIDIative",
-  "license": "NOINE",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/midiative/capacitor-midi-device.git"
