@@ -1,6 +1,6 @@
-# capacitor-midi-device
+# @midiative/capacitor-midi-device
 
-connect midi devices to your app
+Connect midi devices to your app
 
 ## Install
 
