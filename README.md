@@ -5,7 +5,7 @@ connect midi devices to your app
 ## Install
 
 ```bash
-npm install capacitor-midi-device
+npm install @midiative/capacitor-midi-device
 npx cap sync
 ```
 
