@@ -26,6 +26,9 @@ jobs:
 
       - run: yarn build
 
-      - run: npm publish --provenance --access public
+      - name: Release
+        uses: softprops/action-gh-release@v2
+
+      - run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
