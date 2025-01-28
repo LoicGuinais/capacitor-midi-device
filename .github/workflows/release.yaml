@@ -1,7 +1,9 @@
-name: CI build
+name: Build build
 on:
   push:
-    branches: [main]
+    # Pattern matched against refs/tags
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
 
 jobs:
   build:
@@ -18,8 +20,3 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-
-      - run: yarn  --frozen-lockfile
-
-      - run: yarn build
-      - run: yarn verify:web
