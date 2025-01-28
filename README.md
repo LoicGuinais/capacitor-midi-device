@@ -61,7 +61,7 @@ initConnectionListener() => Promise<void>
 ### addListener('MIDI_MSG_EVENT', ...)
 
 ```typescript
-addListener(eventName: 'MIDI_MSG_EVENT', listenerFunc: (message: MidiMessage) => void) => Promise<PluginListenerHandle> & PluginListenerHandle
+addListener(eventName: 'MIDI_MSG_EVENT', listenerFunc: (message: MidiMessage) => void) => Promise<PluginListenerHandle>
 ```
 
 | Param              | Type                                                                      |
@@ -69,7 +69,7 @@ addListener(eventName: 'MIDI_MSG_EVENT', listenerFunc: (message: MidiMessage) =>
 | **`eventName`**    | <code>'MIDI_MSG_EVENT'</code>                                             |
 | **`listenerFunc`** | <code>(message: <a href="#midimessage">MidiMessage</a>) =&gt; void</code> |
 
-**Returns:** <code>Promise&lt;<a href="#pluginlistenerhandle">PluginListenerHandle</a>&gt; & <a href="#pluginlistenerhandle">PluginListenerHandle</a></code>
+**Returns:** <code>Promise&lt;<a href="#pluginlistenerhandle">PluginListenerHandle</a>&gt;</code>
 
 --------------------
 
@@ -77,7 +77,7 @@ addListener(eventName: 'MIDI_MSG_EVENT', listenerFunc: (message: MidiMessage) =>
 ### addListener('MIDI_CON_EVENT', ...)
 
 ```typescript
-addListener(eventName: 'MIDI_CON_EVENT', listenerFunc: (devices: { value: string[]; }) => void) => Promise<PluginListenerHandle> & PluginListenerHandle
+addListener(eventName: 'MIDI_CON_EVENT', listenerFunc: (devices: { value: string[]; }) => void) => Promise<PluginListenerHandle>
 ```
 
 | Param              | Type                                                    |
@@ -85,7 +85,7 @@ addListener(eventName: 'MIDI_CON_EVENT', listenerFunc: (devices: { value: string
 | **`eventName`**    | <code>'MIDI_CON_EVENT'</code>                           |
 | **`listenerFunc`** | <code>(devices: { value: string[]; }) =&gt; void</code> |
 
-**Returns:** <code>Promise&lt;<a href="#pluginlistenerhandle">PluginListenerHandle</a>&gt; & <a href="#pluginlistenerhandle">PluginListenerHandle</a></code>
+**Returns:** <code>Promise&lt;<a href="#pluginlistenerhandle">PluginListenerHandle</a>&gt;</code>
 
 --------------------
 
