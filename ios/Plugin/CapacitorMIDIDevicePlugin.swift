@@ -165,36 +165,51 @@ public class CapacitorMIDIDevicePlugin: CAPPlugin {
 
     private func startListeningToSource(index: Int) -> Bool {
         guard ensureMidiClientAndPort() else { return false }
-
+    
         let sourceCount = MIDIGetNumberOfSources()
-        guard index >= 0 && index < sourceCount else {
-            CAPLog.print("[CapacitorMIDIDevice] ❌ Invalid device index \(index)")
+        let destCount = MIDIGetNumberOfDestinations()
+        print("🎧 System has \(sourceCount) sources and \(destCount) destinations")
+    
+        // 🧩 Log all names
+        for i in 0..<sourceCount {
+            if let n = getEndpointName(MIDIGetSource(i)) {
+                print("🎧 Source[\(i)] → \(n)")
+            }
+        }
+        for i in 0..<destCount {
+            if let n = getEndpointName(MIDIGetDestination(i)) {
+                print("🎧 Dest[\(i)] → \(n)")
+            }
+        }
+    
+        // --- Try source first ---
+        var endpoint = MIDIGetSource(index)
+        if endpoint == 0 {
+            print("⚠️ MIDIGetSource returned 0 → trying MIDIGetDestination instead")
+            endpoint = MIDIGetDestination(index)
+        }
+        if endpoint == 0 {
+            CAPLog.print("[CapacitorMIDIDevice] ❌ No valid endpoint for index \(index)")
             return false
         }
-
-        let src = MIDIGetSource(index)
-        if src == 0 {
-            CAPLog.print("[CapacitorMIDIDevice] ❌ MIDIGetSource returned 0 for index \(index)")
-            return false
-        }
-
+    
         if connectedSource != 0 {
             MIDIPortDisconnectSource(inputPort, connectedSource)
         }
-
-        let status = MIDIPortConnectSource(inputPort, src, nil)
-        print("🎧 MIDIPortConnectSource status=", status)   // ✅ added debug line
-        
+    
+        let status = MIDIPortConnectSource(inputPort, endpoint, nil)
+        print("🎧 MIDIPortConnectSource status=", status, "endpoint=", endpoint)
+    
         if status == noErr {
-            connectedSource = src
-            CAPLog.print("[CapacitorMIDIDevice] 🎧 Listening to MIDI source \(index)")
+            connectedSource = endpoint
+            CAPLog.print("[CapacitorMIDIDevice] 🎧 Listening to MIDI endpoint \(index)")
             return true
         } else {
             CAPLog.print("[CapacitorMIDIDevice] ❌ MIDIPortConnectSource failed \(status)")
             return false
         }
-
     }
+
 
     private func currentDeviceList() -> [String] {
         var deviceNames: [String] = []
