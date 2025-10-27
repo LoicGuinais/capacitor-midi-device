@@ -10,6 +10,7 @@ public class CapacitorMIDIDevicePlugin: CAPPlugin {
     private var connectedSource: MIDIEndpointRef = 0
     private var connectionClient: MIDIClientRef = 0
     private var connectionListenerInstalled = false
+    private var retainedPorts: [MIDIPortRef] = [] 
 
     // MARK: - List available devices
     @objc func listMIDIDevices(_ call: CAPPluginCall) {
@@ -93,63 +94,72 @@ public class CapacitorMIDIDevicePlugin: CAPPlugin {
 
     private func ensureMidiClientAndPort() -> Bool {
         if midiClient != 0 && inputPort != 0 { return true }
-
+    
         var newClient = MIDIClientRef()
-        var status = MIDIClientCreate("CapacitorMIDIClient" as CFString, nil, nil, &newClient)
-        if status != noErr {
-            CAPLog.print("[CapacitorMIDIDevice] ❌ MIDIClientCreate failed status=\(status)")
+        let clientStatus = MIDIClientCreate("CapacitorMIDIClient" as CFString, nil, nil, &newClient)
+        guard clientStatus == noErr else {
+            CAPLog.print("[CapacitorMIDIDevice] ❌ MIDIClientCreate failed \(clientStatus)")
             return false
         }
-
+    
         midiClient = newClient
+    
         var newInputPort = MIDIPortRef()
-        let refCon = UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque())
-
-        status = MIDIInputPortCreateWithBlock(
-            midiClient,
+        let status = MIDIInputPortCreateWithBlock(midiClient,
             "CapacitorMIDIInputPort" as CFString,
             &newInputPort
-        ) { packetList, srcConnRefCon in
-            // Safety unwrap + decode packetList
+        ) { [weak self] packetList, _ in
+            guard let self = self else { return }
+    
             var packet = packetList.pointee.packet
-            let packetCount = Int(packetList.pointee.numPackets)
-        
-            for _ in 0..<packetCount {
+            let count = Int(packetList.pointee.numPackets)
+    
+            print("🎹 Received \(count) CoreMIDI packets")
+    
+            for _ in 0..<count {
                 let length = Int(packet.length)
                 var dataBytes = [UInt8](repeating: 0, count: length)
-        
-                withUnsafeBytes(of: packet.data) { rawBuf in
-                    for i in 0..<length {
-                        dataBytes[i] = rawBuf[i]
-                    }
+                withUnsafeBytes(of: packet.data) { raw in
+                    for i in 0..<length { dataBytes[i] = raw[i] }
                 }
-        
+    
+                print("🎛 BYTES:", dataBytes.map { String(format:"%02X", $0) }.joined(separator:" "))
+    
                 let statusByte = dataBytes.indices.contains(0) ? dataBytes[0] : 0
                 let noteByte   = dataBytes.indices.contains(1) ? dataBytes[1] : 0
                 let velByte    = dataBytes.indices.contains(2) ? dataBytes[2] : 0
-        
-                print("🎹 BYTES:", dataBytes)
-                print("🎹 SENDING type=\(statusByte) note=\(noteByte) vel=\(velByte)")
-        
+    
+                let type: String
+                if statusByte & 0xF0 == 0x90 && velByte > 0 {
+                    type = "noteOn"
+                } else if statusByte & 0xF0 == 0x80 || (statusByte & 0xF0 == 0x90 && velByte == 0) {
+                    type = "noteOff"
+                } else {
+                    type = "other"
+                }
+    
+                print("🎹 EVENT type=\(type) note=\(noteByte) vel=\(velByte)")
+    
                 DispatchQueue.main.async {
                     self.notifyListeners("MIDI_MSG_EVENT", data: [
-                        "type": String(format: "0x%X", statusByte),
+                        "type": type,
                         "note": Int(noteByte),
                         "velocity": Int(velByte)
                     ])
                 }
-        
+    
                 packet = MIDIPacketNext(&packet).pointee
             }
         }
-
-        if status != noErr {
-            CAPLog.print("[CapacitorMIDIDevice] ❌ MIDIInputPortCreate failed status=\(status)")
+    
+        guard status == noErr else {
+            CAPLog.print("[CapacitorMIDIDevice] ❌ MIDIInputPortCreateWithBlock failed \(status)")
             return false
         }
-
+    
         inputPort = newInputPort
-        CAPLog.print("[CapacitorMIDIDevice] ✅ Created MIDI client & input port")
+        retainedPorts.append(newInputPort)  
+        CAPLog.print("[CapacitorMIDIDevice] ✅ Created MIDI client & input port with block")
         return true
     }
 
@@ -173,6 +183,8 @@ public class CapacitorMIDIDevicePlugin: CAPPlugin {
         }
 
         let status = MIDIPortConnectSource(inputPort, src, nil)
+        print("🎧 MIDIPortConnectSource status=", status)   // ✅ added debug line
+        
         if status == noErr {
             connectedSource = src
             CAPLog.print("[CapacitorMIDIDevice] 🎧 Listening to MIDI source \(index)")
@@ -181,6 +193,7 @@ public class CapacitorMIDIDevicePlugin: CAPPlugin {
             CAPLog.print("[CapacitorMIDIDevice] ❌ MIDIPortConnectSource failed \(status)")
             return false
         }
+
     }
 
     private func currentDeviceList() -> [String] {
