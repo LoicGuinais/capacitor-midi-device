@@ -210,41 +210,63 @@ public class CapacitorMIDIDevicePlugin: CAPPlugin {
 
     // MARK: - MIDI Read Callback
     private let midiReadProc: MIDIReadProc = { packetListPtr, refCon, _ in
-        guard let refCon = refCon else { return }
-        let packetList = packetListPtr
-
+        guard let refCon = refCon else {
+            print("❌ No refCon in midiReadProc")
+            return
+        }
+    
+        // Convert back to our plugin instance
         let this = Unmanaged<CapacitorMIDIDevicePlugin>.fromOpaque(refCon).takeUnretainedValue()
-
-        var packet = packetList.pointee.packet
-        let packetCount = Int(packetList.pointee.numPackets)
-
+        let packetList = packetListPtr.pointee
+        var packet = packetList.packet
+        let packetCount = Int(packetList.numPackets)
+    
+        print("🎹 MIDIReadProc fired — packets: \(packetCount)")
+    
+        // Iterate through all packets
         for _ in 0..<packetCount {
             let length = Int(packet.length)
-                var dataBytes = [UInt8](repeating: 0, count: length)
-                
-                // Copy raw bytes out of the tuple safely
-                withUnsafeBytes(of: packet.data) { rawBuf in
-                    for i in 0..<length {
-                        dataBytes[i] = rawBuf[i]
-                    }
+            var dataBytes = [UInt8](repeating: 0, count: length)
+    
+            withUnsafeBytes(of: packet.data) { rawBuf in
+                for i in 0..<length {
+                    dataBytes[i] = rawBuf[i]
                 }
-                
-                let statusByte = dataBytes.indices.contains(0) ? dataBytes[0] : 0
-                let noteByte   = dataBytes.indices.contains(1) ? dataBytes[1] : 0
-                let velByte    = dataBytes.indices.contains(2) ? dataBytes[2] : 0
-            print("🎹 BYTES:", dataBytes)
-            print("🎹 SENDING type=\(statusByte) note=\(noteByte) vel=\(velByte)")
-            
+            }
+    
+            // Detailed raw dump
+            print("🎛 RAW BYTES [\(length)]:", dataBytes.map { String(format: "%02X", $0) }.joined(separator: " "))
+    
+            // Extract basic info
+            let statusByte = dataBytes.indices.contains(0) ? dataBytes[0] : 0
+            let noteByte   = dataBytes.indices.contains(1) ? dataBytes[1] : 0
+            let velByte    = dataBytes.indices.contains(2) ? dataBytes[2] : 0
+    
+            // Interpret note on/off
+            let type: String
+            if statusByte & 0xF0 == 0x90 && velByte > 0 {
+                type = "noteOn"
+            } else if statusByte & 0xF0 == 0x80 || (statusByte & 0xF0 == 0x90 && velByte == 0) {
+                type = "noteOff"
+            } else {
+                type = "other"
+            }
+    
+            print("🎹 EVENT: type=\(type) status=\(String(format:"0x%02X", statusByte)) note=\(noteByte) vel=\(velByte)")
+    
+            // Forward to JS listener
             DispatchQueue.main.async {
                 this.notifyListeners("MIDI_MSG_EVENT", data: [
-                    "type": String(format: "0x%X", statusByte),
+                    "type": type,
+                    "status": String(format:"0x%02X", statusByte),
                     "note": Int(noteByte),
                     "velocity": Int(velByte)
                 ])
             }
-
-
+    
+            // Move to next packet
             packet = MIDIPacketNext(&packet).pointee
         }
     }
+
 }
