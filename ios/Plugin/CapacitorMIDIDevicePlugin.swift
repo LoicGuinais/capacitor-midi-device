@@ -4,14 +4,18 @@ import CoreMIDI
 
 @objc(CapacitorMIDIDevicePlugin)
 public class CapacitorMIDIDevicePlugin: CAPPlugin {
-print("🚀 CapacitorMIDIDevicePlugin (test5) loaded into runtime")
+
+    override public init() {
+        super.init()
+        Swift.print("🚀 CapacitorMIDIDevicePlugin (test6) loaded into runtime")
+    }
 
     private var midiClient: MIDIClientRef = 0
     private var inputPort: MIDIPortRef = 0
     private var connectedSource: MIDIEndpointRef = 0
     private var connectionClient: MIDIClientRef = 0
     private var connectionListenerInstalled = false
-    private var retainedPorts: [MIDIPortRef] = [] 
+    private var retainedPorts: [MIDIPortRef] = []
 
     // MARK: - List available devices
     @objc func listMIDIDevices(_ call: CAPPluginCall) {
