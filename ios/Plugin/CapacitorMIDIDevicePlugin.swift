@@ -105,13 +105,43 @@ public class CapacitorMIDIDevicePlugin: CAPPlugin {
         var newInputPort = MIDIPortRef()
         let refCon = UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque())
 
-        status = MIDIInputPortCreate(
+        status = MIDIInputPortCreateWithBlock(
             midiClient,
             "CapacitorMIDIInputPort" as CFString,
-            midiReadProc,
-            refCon,
             &newInputPort
-        )
+        ) { packetList, srcConnRefCon in
+            // Safety unwrap + decode packetList
+            var packet = packetList.pointee.packet
+            let packetCount = Int(packetList.pointee.numPackets)
+        
+            for _ in 0..<packetCount {
+                let length = Int(packet.length)
+                var dataBytes = [UInt8](repeating: 0, count: length)
+        
+                withUnsafeBytes(of: packet.data) { rawBuf in
+                    for i in 0..<length {
+                        dataBytes[i] = rawBuf[i]
+                    }
+                }
+        
+                let statusByte = dataBytes.indices.contains(0) ? dataBytes[0] : 0
+                let noteByte   = dataBytes.indices.contains(1) ? dataBytes[1] : 0
+                let velByte    = dataBytes.indices.contains(2) ? dataBytes[2] : 0
+        
+                print("🎹 BYTES:", dataBytes)
+                print("🎹 SENDING type=\(statusByte) note=\(noteByte) vel=\(velByte)")
+        
+                DispatchQueue.main.async {
+                    self.notifyListeners("MIDI_MSG_EVENT", data: [
+                        "type": String(format: "0x%X", statusByte),
+                        "note": Int(noteByte),
+                        "velocity": Int(velByte)
+                    ])
+                }
+        
+                packet = MIDIPacketNext(&packet).pointee
+            }
+        }
 
         if status != noErr {
             CAPLog.print("[CapacitorMIDIDevice] ❌ MIDIInputPortCreate failed status=\(status)")
