@@ -4,6 +4,7 @@ import CoreMIDI
 
 @objc(CapacitorMIDIDevicePlugin)
 public class CapacitorMIDIDevicePlugin: CAPPlugin {
+print("🚀 CapacitorMIDIDevicePlugin (test5) loaded into runtime")
 
     private var midiClient: MIDIClientRef = 0
     private var inputPort: MIDIPortRef = 0
