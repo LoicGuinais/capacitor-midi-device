@@ -253,22 +253,20 @@ public class CapacitorMIDIDevicePlugin: CAPPlugin {
         return nil
     }
 
-    // MARK: - MIDI Read Callback
+    // MARK: - MIDI Read Callback (legacy fallback)
     private let midiReadProc: MIDIReadProc = { packetListPtr, refCon, _ in
         guard let refCon = refCon else {
             Swift.print("❌ No refCon in midiReadProc")
             return
         }
     
-        // Convert back to our plugin instance
         let this = Unmanaged<CapacitorMIDIDevicePlugin>.fromOpaque(refCon).takeUnretainedValue()
         let packetList = packetListPtr.pointee
         var packet = packetList.packet
         let packetCount = Int(packetList.numPackets)
     
-        self.logToJS("🎹 MIDIReadProc fired — packets: \(packetCount)")
+        Swift.print("🎹 MIDIReadProc fired — packets: \(packetCount)")
     
-        // Iterate through all packets
         for _ in 0..<packetCount {
             let length = Int(packet.length)
             var dataBytes = [UInt8](repeating: 0, count: length)
@@ -279,15 +277,12 @@ public class CapacitorMIDIDevicePlugin: CAPPlugin {
                 }
             }
     
-            // Detailed raw dump
-            self.logToJS("🎛 RAW BYTES [\(length)]:", dataBytes.map { String(format: "%02X", $0) }.joined(separator: " "))
+            Swift.print("🎛 RAW BYTES [\(length)]:", dataBytes.map { String(format: "%02X", $0) }.joined(separator: " "))
     
-            // Extract basic info
             let statusByte = dataBytes.indices.contains(0) ? dataBytes[0] : 0
             let noteByte   = dataBytes.indices.contains(1) ? dataBytes[1] : 0
             let velByte    = dataBytes.indices.contains(2) ? dataBytes[2] : 0
     
-            // Interpret note on/off
             let type: String
             if statusByte & 0xF0 == 0x90 && velByte > 0 {
                 type = "noteOn"
@@ -297,9 +292,8 @@ public class CapacitorMIDIDevicePlugin: CAPPlugin {
                 type = "other"
             }
     
-            self.logToJS("🎹 EVENT: type=\(type) status=\(String(format:"0x%02X", statusByte)) note=\(noteByte) vel=\(velByte)")
+            Swift.print("🎹 EVENT: type=\(type) status=\(String(format:"0x%02X", statusByte)) note=\(noteByte) vel=\(velByte)")
     
-            // Forward to JS listener
             DispatchQueue.main.async {
                 this.notifyListeners("MIDI_MSG_EVENT", data: [
                     "type": type,
@@ -309,9 +303,9 @@ public class CapacitorMIDIDevicePlugin: CAPPlugin {
                 ])
             }
     
-            // Move to next packet
             packet = MIDIPacketNext(&packet).pointee
         }
     }
+
 
 }
