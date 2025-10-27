@@ -190,18 +190,18 @@ public class CapacitorMIDIDevicePlugin: CAPPlugin {
 
         for _ in 0..<packetCount {
             let length = Int(packet.length)
-            var dataBytes: [UInt8] = []
-            dataBytes.reserveCapacity(length)
-
-            for byte in Mirror(reflecting: packet.data).children.prefix(length) {
-                if let b = byte.value as? UInt8 {
-                    dataBytes.append(b)
+                var dataBytes = [UInt8](repeating: 0, count: length)
+                
+                // Copy raw bytes out of the tuple safely
+                withUnsafeBytes(of: packet.data) { rawBuf in
+                    for i in 0..<length {
+                        dataBytes[i] = rawBuf[i]
+                    }
                 }
-            }
-
-            let statusByte = dataBytes.count > 0 ? dataBytes[0] : 0
-            let noteByte   = dataBytes.count > 1 ? dataBytes[1] : 0
-            let velByte    = dataBytes.count > 2 ? dataBytes[2] : 0
+                
+                let statusByte = dataBytes.indices.contains(0) ? dataBytes[0] : 0
+                let noteByte   = dataBytes.indices.contains(1) ? dataBytes[1] : 0
+                let velByte    = dataBytes.indices.contains(2) ? dataBytes[2] : 0
 
             DispatchQueue.main.async {
                 this.notifyListeners("MIDI_MSG_EVENT", data: [
@@ -210,6 +210,7 @@ public class CapacitorMIDIDevicePlugin: CAPPlugin {
                     "velocity": Int(velByte)
                 ])
             }
+
 
             packet = MIDIPacketNext(&packet).pointee
         }
