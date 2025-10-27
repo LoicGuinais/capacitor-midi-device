@@ -17,6 +17,15 @@ public class CapacitorMIDIDevicePlugin: CAPPlugin {
     private var connectionListenerInstalled = false
     private var retainedPorts: [MIDIPortRef] = []
 
+
+    // MARK: - Log forwarding
+    private func logToJS(_ message: String) {
+        Swift.print(message)  // keep native visibility in Xcode too
+        DispatchQueue.main.async {
+            self.notifyListeners("MIDI_DEBUG_LOG", data: ["msg": message])
+        }
+    }
+
     // MARK: - List available devices
     @objc func listMIDIDevices(_ call: CAPPluginCall) {
         var deviceNames: [String] = []
@@ -119,7 +128,7 @@ public class CapacitorMIDIDevicePlugin: CAPPlugin {
             var packet = packetList.pointee.packet
             let count = Int(packetList.pointee.numPackets)
     
-            print("🎹 Received \(count) CoreMIDI packets")
+            self.logToJS("🎹 Received \(count) CoreMIDI packets")
     
             for _ in 0..<count {
                 let length = Int(packet.length)
@@ -128,7 +137,8 @@ public class CapacitorMIDIDevicePlugin: CAPPlugin {
                     for i in 0..<length { dataBytes[i] = raw[i] }
                 }
     
-                print("🎛 BYTES:", dataBytes.map { String(format:"%02X", $0) }.joined(separator:" "))
+                self.logToJS("🎛 BYTES: " + dataBytes.map { String(format:"%02X", $0) }.joined(separator:" "))
+
     
                 let statusByte = dataBytes.indices.contains(0) ? dataBytes[0] : 0
                 let noteByte   = dataBytes.indices.contains(1) ? dataBytes[1] : 0
@@ -143,7 +153,7 @@ public class CapacitorMIDIDevicePlugin: CAPPlugin {
                     type = "other"
                 }
     
-                print("🎹 EVENT type=\(type) note=\(noteByte) vel=\(velByte)")
+                self.logToJS("🎹 EVENT type=\(type) note=\(noteByte) vel=\(velByte)")
     
                 DispatchQueue.main.async {
                     self.notifyListeners("MIDI_MSG_EVENT", data: [
@@ -165,6 +175,7 @@ public class CapacitorMIDIDevicePlugin: CAPPlugin {
         inputPort = newInputPort
         retainedPorts.append(newInputPort)  
         CAPLog.print("[CapacitorMIDIDevice] ✅ Created MIDI client & input port with block")
+        self.logToJS("✅ Created MIDI client & input port with block")
         return true
     }
 
@@ -173,24 +184,24 @@ public class CapacitorMIDIDevicePlugin: CAPPlugin {
     
         let sourceCount = MIDIGetNumberOfSources()
         let destCount = MIDIGetNumberOfDestinations()
-        print("🎧 System has \(sourceCount) sources and \(destCount) destinations")
+        self.logToJS("🎧 System has \(sourceCount) sources and \(destCount) destinations")
     
         // 🧩 Log all names
         for i in 0..<sourceCount {
             if let n = getEndpointName(MIDIGetSource(i)) {
-                print("🎧 Source[\(i)] → \(n)")
+                self.logToJS("🎧 Source[\(i)] → \(n)")
             }
         }
         for i in 0..<destCount {
             if let n = getEndpointName(MIDIGetDestination(i)) {
-                print("🎧 Dest[\(i)] → \(n)")
+                self.logToJS("🎧 Dest[\(i)] → \(n)")
             }
         }
     
         // --- Try source first ---
         var endpoint = MIDIGetSource(index)
         if endpoint == 0 {
-            print("⚠️ MIDIGetSource returned 0 → trying MIDIGetDestination instead")
+            self.logToJS("⚠️ MIDIGetSource returned 0 → trying MIDIGetDestination instead")
             endpoint = MIDIGetDestination(index)
         }
         if endpoint == 0 {
@@ -203,7 +214,8 @@ public class CapacitorMIDIDevicePlugin: CAPPlugin {
         }
     
         let status = MIDIPortConnectSource(inputPort, endpoint, nil)
-        print("🎧 MIDIPortConnectSource status=", status, "endpoint=", endpoint)
+        self.logToJS("🎧 MIDIPortConnectSource status=\(status) endpoint=\(endpoint)")
+
     
         if status == noErr {
             connectedSource = endpoint
@@ -244,7 +256,7 @@ public class CapacitorMIDIDevicePlugin: CAPPlugin {
     // MARK: - MIDI Read Callback
     private let midiReadProc: MIDIReadProc = { packetListPtr, refCon, _ in
         guard let refCon = refCon else {
-            print("❌ No refCon in midiReadProc")
+            Swift.print("❌ No refCon in midiReadProc")
             return
         }
     
@@ -254,7 +266,7 @@ public class CapacitorMIDIDevicePlugin: CAPPlugin {
         var packet = packetList.packet
         let packetCount = Int(packetList.numPackets)
     
-        print("🎹 MIDIReadProc fired — packets: \(packetCount)")
+        self.logToJS("🎹 MIDIReadProc fired — packets: \(packetCount)")
     
         // Iterate through all packets
         for _ in 0..<packetCount {
@@ -268,7 +280,7 @@ public class CapacitorMIDIDevicePlugin: CAPPlugin {
             }
     
             // Detailed raw dump
-            print("🎛 RAW BYTES [\(length)]:", dataBytes.map { String(format: "%02X", $0) }.joined(separator: " "))
+            self.logToJS("🎛 RAW BYTES [\(length)]:", dataBytes.map { String(format: "%02X", $0) }.joined(separator: " "))
     
             // Extract basic info
             let statusByte = dataBytes.indices.contains(0) ? dataBytes[0] : 0
@@ -285,7 +297,7 @@ public class CapacitorMIDIDevicePlugin: CAPPlugin {
                 type = "other"
             }
     
-            print("🎹 EVENT: type=\(type) status=\(String(format:"0x%02X", statusByte)) note=\(noteByte) vel=\(velByte)")
+            self.logToJS("🎹 EVENT: type=\(type) status=\(String(format:"0x%02X", statusByte)) note=\(noteByte) vel=\(velByte)")
     
             // Forward to JS listener
             DispatchQueue.main.async {
