@@ -202,7 +202,9 @@ public class CapacitorMIDIDevicePlugin: CAPPlugin {
                 let statusByte = dataBytes.indices.contains(0) ? dataBytes[0] : 0
                 let noteByte   = dataBytes.indices.contains(1) ? dataBytes[1] : 0
                 let velByte    = dataBytes.indices.contains(2) ? dataBytes[2] : 0
-
+            print("🎹 BYTES:", dataBytes)
+            print("🎹 SENDING type=\(statusByte) note=\(noteByte) vel=\(velByte)")
+            
             DispatchQueue.main.async {
                 this.notifyListeners("MIDI_MSG_EVENT", data: [
                     "type": String(format: "0x%X", statusByte),
