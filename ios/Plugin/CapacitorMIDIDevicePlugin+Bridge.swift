@@ -1,8 +1,8 @@
 import Foundation
 import Capacitor
 
-@objc(CapacitorMIDIDevicePlugin)
-public class CapacitorMIDIDevicePlugin: NSObject, CAPBridgedPlugin {
+@objc(CapacitorMIDIDevicePluginBridge)
+public class CapacitorMIDIDevicePluginBridge: NSObject, CAPBridgedPlugin {
     public static let pluginName = "CapacitorMIDIDevicePlugin"
     public static let jsName = "CapacitorMIDIDevicePlugin"
     public static let pluginMethods: [CAPPluginMethod] = [
